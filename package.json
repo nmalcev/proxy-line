@@ -1,0 +1,11 @@
+{
+  "name": "proxy_monkey",
+  "version": "0.1",
+  "description": "Tool for proxing web requests",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "n.maltsev",
+  "license": "ISC"
+}
