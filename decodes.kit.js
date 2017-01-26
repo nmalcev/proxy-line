@@ -2,6 +2,7 @@ module.exports.formDecode = formDecode;
 module.exports.getQuery = getQuery;
 module.exports.parseDomain = parseDomain;
 module.exports.cookieDecode = cookieDecode;
+module.exports.CookieManager = CookieManager;
 
 function _fromRfc3986(val){
 	var 	tmp = val
@@ -85,3 +86,43 @@ function cookieDecode(encoded){
 	}
 	return decoded;
 }
+
+function CookieManager(){
+	this.domains = {};
+}
+// @param {String} domain
+// @param {Array} cookies
+CookieManager.prototype.add = function(domain, cookies){
+	if(!this.domains[domain]){
+		this.domains[domain] = {};
+	}
+	var 	i = cookies.length,
+			pos, buf;
+
+	while(i-- > 0){
+		pos = cookies[i].indexOf(';');
+		buf = pos != -1 ? cookies[i].substring(0, pos) : cookies[i];
+		pos = buf.indexOf('=');
+		
+		if(pos != -1){
+			this.domains[domain][buf.substring(0, pos)]	= buf.substring(pos + 1);
+		}
+	}
+};
+// @param {String} domain
+CookieManager.prototype.get = function(domain){
+	var 	collection = this.domains[domain] || {};
+
+	return collection;
+};
+CookieManager.prototype.getSerialized = function(domain){
+	var 	collection = this.domains[domain] || {},
+			out = '';
+
+	for(var key in collection){
+		out += key + '=' + collection[key] + '; ';
+	}
+
+	return out;
+};
+

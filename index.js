@@ -8,6 +8,7 @@ var 	PORT = 9090,
 		QUERY_MARK = 'monkeyhost',
 		DEBUG = true;
 
+var 	_cookieManager = new $decodes.CookieManager();		
 
 $http.createServer(function(request, response){
 	DEBUG && console.log('[REQ %s] `%s` %s', request.method, request.url, +new Date());
@@ -53,6 +54,11 @@ $http.createServer(function(request, response){
 	conf.path = path;
 	conf.headers = request.headers;
 
+	// Patch cookies at request (Third domain request can transported cookies!)
+	var storedCookies = _cookieManager.getSerialized(hostDestination);
+	conf.headers['Cookie'] = (conf.headers['Cookie'] ? conf.headers['Cookie'] + '; ' : '' ) + storedCookies;
+
+
 	DEBUG && console.log('CONF %s', hostDestination);
 	DEBUG && console.dir(conf);
 	
@@ -66,16 +72,18 @@ $http.createServer(function(request, response){
 
 		// Fix CORS troubles
 		proxy_response.headers['Access-Control-Allow-Origin'] = '*';
-		
-		if(hostDestination){
-			if(proxy_response.headers['Set-Cookie']){
-				proxy_response.headers['Set-Cookie'] += ';' + COOKIE_MARK + '=' + encodeURI(hostDestination);
-			}else{
-				proxy_response.headers['Set-Cookie'] = COOKIE_MARK + '=' + encodeURI(hostDestination);
-			}
-			DEBUG && console.log('SET COOKIE `%s`', proxy_response.headers['Set-Cookie']);
-		}
+
+		var cookieHeader = proxy_response.headers.hasOwnProperty('Set-Cookie') ? 'Set-Cookie' : 'set-cookie';
 	
+		if(hostDestination){
+			if(!Array.isArray(proxy_response.headers[cookieHeader])){
+				proxy_response.headers[cookieHeader] = [];
+			}
+			_cookieManager.add(hostDestination, proxy_response.headers[cookieHeader]);
+			// Monkey proxy cookie wouldn't be at cookie cash:
+			proxy_response.headers[cookieHeader].push(COOKIE_MARK + '=' + encodeURI(hostDestination));
+		}
+
 		response.writeHead(proxy_response.statusCode, proxy_response.headers);
 	});
 	// Handle if host not found
