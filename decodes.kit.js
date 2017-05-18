@@ -1,8 +1,10 @@
 module.exports.formDecode = formDecode;
+module.exports.urlEncode = urlEncode;
 module.exports.getQuery = getQuery;
 module.exports.parseDomain = parseDomain;
 module.exports.cookieDecode = cookieDecode;
 module.exports.CookieManager = CookieManager;
+
 
 function _fromRfc3986(val){
 	var 	tmp = val
@@ -14,7 +16,31 @@ function _fromRfc3986(val){
 
 	return decodeURIComponent(tmp);
 };
+var _3986map = {
+		'!': 	'%21',
+		'*': 	'%2A',
+		'\'': 	'%27',
+		'(': 	'%28',
+		')': 	'%29',
+	},
+	_3986backmap = {
+		'%21': '!',
+		'%2A': '*',
+		'%27': '\'',
+		'%28': '(',
+		'%29': ')',
+	};
 
+function toRfc3986(val){
+	return encodeURIComponent(val).replace(/[\!\*\'\(\)]/g, function(m){
+		return _3986map[m];
+	});
+};
+function fromRfc3986(val){
+	return decodeURIComponent(val.replace(/(%21|%2A|%27|%28|%29)/g, function(m){
+		return _3986backmap[m];
+	}));
+};
 // @param {String} encoded - something like 'var1=value1&var2=value'
 // @return {Object} decoded;
 function formDecode(encoded){
@@ -36,6 +62,16 @@ function formDecode(encoded){
 	}
 	return decoded;
 }
+
+function urlEncode(obj){
+	var 	out = '', 
+			key;
+
+	for(key in obj){
+		out += (out.length > 0 ? '&' : '?') + toRfc3986(key) + '=' + toRfc3986(obj[key]);
+	}
+	return out;
+};
 
 function getQuery(url){
 	var 	pos = url.indexOf('#');

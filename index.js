@@ -8,6 +8,7 @@ var 	PORT = 9090,
 		QUERY_MARK = 'monkeyhost',
 		DEBUG = true;
 
+// TODO crete function for clearing storage after request have passed
 var 	_cookieManager = new $decodes.CookieManager();		
 
 $http.createServer(function(request, response){
@@ -16,7 +17,7 @@ $http.createServer(function(request, response){
 	if(request.method == 'OPTIONS'){ // it is preflight request
    		response.writeHead(200, {  
 			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Methods': 'PROPFIND, PROPPATCH, COPY, MOVE, DELETE, MKCOL, LOCK, UNLOCK, PUT, GETLIB, VERSION-CONTROL, CHECKIN, CHECKOUT, UNCHECKOUT, REPORT, UPDATE, CANCELUPLOAD, HEAD, OPTIONS, GET, POST',
+			'Access-Control-Allow-Methods': 'PROPFIND, PROPPATCH, COPY, PATCH, MOVE, DELETE, MKCOL, LOCK, UNLOCK, PUT, GETLIB, VERSION-CONTROL, CHECKIN, CHECKOUT, UNCHECKOUT, REPORT, UPDATE, CANCELUPLOAD, HEAD, OPTIONS, GET, POST',
 			'Access-Control-Allow-Headers': 'Overwrite, Destination, Content-Type, Depth, User-Agent, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control',
 			'Access-Control-Max-Age': 600, // 600s maximum at Chrome and 86400s at Firefox
 			'Content-Type': 'application/json'
@@ -29,25 +30,25 @@ $http.createServer(function(request, response){
 			path = request.url,
 			conf;
 	
-	
 	if(path.indexOf('?') != -1){
 		var 	queryData = $decodes.formDecode($decodes.getQuery(path) || ''),
-				startPos = path.indexOf(QUERY_MARK),
-				endPos = path.indexOf('&', startPos);
+				startPos = path.indexOf('?');
 
-		if(endPos == -1) endPos = path.indexOf('#', startPos);
-		// cut monkeyhost from query
-		path = path.substring(0, startPos) + (endPos != -1 ? path.substring(endPos + 1) : '');
 		hostDestination = queryData[QUERY_MARK];
-		DEBUG && console.log('Query');
-		DEBUG && console.dir(queryData);
+		delete queryData[QUERY_MARK];
+		// cut monkeyhost from query
+		path = path.substring(0, startPos) + $decodes.urlEncode(queryData);
+
+		// DEBUG && console.log('Query');
+		// DEBUG && console.dir(queryData);
 	}else{
-		var cookies = $decodes.cookieDecode(request.headers.cookie || '');
-		hostDestination = cookies[COOKIE_MARK];
+		var 	cookies = $decodes.cookieDecode(request.headers.cookie || '');
 		
-		DEBUG && console.log('COOKIE');
-		DEBUG && console.dir(cookies);
+		hostDestination = cookies[COOKIE_MARK];
+		// DEBUG && console.log('COOKIE');
+		// DEBUG && console.dir(cookies);
 	}
+
 	
 	conf = $decodes.parseDomain(hostDestination || DEFAULT_HOST);
 	conf.method = request.method;
@@ -58,20 +59,32 @@ $http.createServer(function(request, response){
 	var storedCookies = _cookieManager.getSerialized(hostDestination);
 	conf.headers['Cookie'] = (conf.headers['Cookie'] ? conf.headers['Cookie'] + '; ' : '' ) + storedCookies;
 
+	// EXTRA SOLUTION
+	// if(path.indexOf('/events') == 0){
+	// 	console.log('CONF %s %s', hostDestination, new Date());
+	// 	console.dir(conf);	
+	// }
 
-	DEBUG && console.log('CONF %s', hostDestination);
-	DEBUG && console.dir(conf);
+	// DEBUG && console.log('CONF %s', hostDestination);
+	// DEBUG && console.dir(conf);
 	
 	var proxy_request = $http.request(conf, function(proxy_response){
+		
+
 		proxy_response.on('data', function(chunk){
 			response.write(chunk, 'binary');
 		});
-		proxy_response.on('end', function(){
+		// Complete request proxing
+		proxy_response.on('end', function(){ 
 			response.end();
 		});
 
 		// Fix CORS troubles
-		proxy_response.headers['Access-Control-Allow-Origin'] = '*';
+		proxy_response.headers[
+			proxy_response.headers.hasOwnProperty('access-control-allow-origin') ?
+				'access-control-allow-origin' :
+				'Access-Control-Allow-Origin'
+		] = '*';
 
 		var cookieHeader = proxy_response.headers.hasOwnProperty('Set-Cookie') ? 'Set-Cookie' : 'set-cookie';
 	
@@ -83,6 +96,11 @@ $http.createServer(function(request, response){
 			// Monkey proxy cookie wouldn't be at cookie cash:
 			proxy_response.headers[cookieHeader].push(COOKIE_MARK + '=' + encodeURI(hostDestination));
 		}
+		// EXTRA SOLUTION
+		// if(path.indexOf('/events') == 0){
+		// 	console.log('start ES %s', new Date());
+		// 	console.dir(proxy_response.headers);	
+		// }
 
 		response.writeHead(proxy_response.statusCode, proxy_response.headers);
 	});
@@ -91,10 +109,10 @@ $http.createServer(function(request, response){
 		response.write(err + '', 'binary');
 		response.end();
 	});
-	request.addListener('data', function(chunk) {
+	request.addListener('data', function(chunk){
 		proxy_request.write(chunk, 'binary');
 	});
-	request.addListener('end', function() {
+	request.addListener('end', function(){
 		proxy_request.end();
 	});
 }).listen(PORT);
