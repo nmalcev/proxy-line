@@ -1,120 +1,28 @@
-var 	$http = require('http'),
-		$decodes = require('./decodes.kit');
+const Application = require('./src/core/app');
+const notFoundMiddleware = require('./src/middlewares/notFound');
+const corsMiddleware = require('./src/middlewares/corsMiddleware');
+const pipeMiddleware = require('./src/middlewares/pipeMiddleware');
 
 
-var 	PORT = 9090,
-		DEFAULT_HOST = '10.3.2.15:2345',
-		COOKIE_MARK = 'monkey_proxy_host',
-		QUERY_MARK = 'monkeyhost',
-		DEBUG = true;
+const app = new Application();
 
-// TODO crete function for clearing storage after request have passed
-var 	_cookieManager = new $decodes.CookieManager();		
+app.addMiddleware(corsMiddleware);
 
-$http.createServer(function(request, response){
-	DEBUG && console.log('[REQ %s] `%s` %s', request.method, request.url, +new Date());
+app.addMiddleware((req, resp) => {
+    if (req.method === 'GET' && req.url === '/test') {
+        resp.writeHead(200, 'OK', { 'Content-Type': 'text/html' });
+        resp.write('<h1>Still work</h1>');
+        resp.end();
+    } 
+    else if (req.method === 'POST' && req.url === '/request') {
+        pipeMiddleware(req, resp);
+    }
+    else {
+        notFoundMiddleware(req, resp);
+    }
+});
 
-	if(request.method == 'OPTIONS'){ // it is preflight request
-   		response.writeHead(200, {  
-			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Methods': 'PROPFIND, PROPPATCH, COPY, PATCH, MOVE, DELETE, MKCOL, LOCK, UNLOCK, PUT, GETLIB, VERSION-CONTROL, CHECKIN, CHECKOUT, UNCHECKOUT, REPORT, UPDATE, CANCELUPLOAD, HEAD, OPTIONS, GET, POST',
-			'Access-Control-Allow-Headers': 'Overwrite, Destination, Content-Type, Depth, User-Agent, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control',
-			'Access-Control-Max-Age': 600, // 600s maximum at Chrome and 86400s at Firefox
-			'Content-Type': 'application/json'
-		});
-		response.end();
-		return;
-	}
+const PORT = process.env.PORT || 61000;
 
-	var 	hostDestination,
-			path = request.url,
-			conf;
-	
-	if(path.indexOf('?') != -1){
-		var 	queryData = $decodes.formDecode($decodes.getQuery(path) || ''),
-				startPos = path.indexOf('?');
-
-		hostDestination = queryData[QUERY_MARK];
-		delete queryData[QUERY_MARK];
-		// cut monkeyhost from query
-		path = path.substring(0, startPos) + $decodes.urlEncode(queryData);
-
-		// DEBUG && console.log('Query');
-		// DEBUG && console.dir(queryData);
-	}else{
-		var 	cookies = $decodes.cookieDecode(request.headers.cookie || '');
-		
-		hostDestination = cookies[COOKIE_MARK];
-		// DEBUG && console.log('COOKIE');
-		// DEBUG && console.dir(cookies);
-	}
-
-	
-	conf = $decodes.parseDomain(hostDestination || DEFAULT_HOST);
-	conf.method = request.method;
-	conf.path = path;
-	conf.headers = request.headers;
-
-	// Patch cookies at request (Third domain request can transported cookies!)
-	var storedCookies = _cookieManager.getSerialized(hostDestination);
-	conf.headers['Cookie'] = (conf.headers['Cookie'] ? conf.headers['Cookie'] + '; ' : '' ) + storedCookies;
-
-	// EXTRA SOLUTION
-	// if(path.indexOf('/events') == 0){
-	// 	console.log('CONF %s %s', hostDestination, new Date());
-	// 	console.dir(conf);	
-	// }
-
-	// DEBUG && console.log('CONF %s', hostDestination);
-	// DEBUG && console.dir(conf);
-	
-	var proxy_request = $http.request(conf, function(proxy_response){
-		
-
-		proxy_response.on('data', function(chunk){
-			response.write(chunk, 'binary');
-		});
-		// Complete request proxing
-		proxy_response.on('end', function(){ 
-			response.end();
-		});
-
-		// Fix CORS troubles
-		proxy_response.headers[
-			proxy_response.headers.hasOwnProperty('access-control-allow-origin') ?
-				'access-control-allow-origin' :
-				'Access-Control-Allow-Origin'
-		] = '*';
-
-		var cookieHeader = proxy_response.headers.hasOwnProperty('Set-Cookie') ? 'Set-Cookie' : 'set-cookie';
-	
-		if(hostDestination){
-			if(!Array.isArray(proxy_response.headers[cookieHeader])){
-				proxy_response.headers[cookieHeader] = [];
-			}
-			_cookieManager.add(hostDestination, proxy_response.headers[cookieHeader]);
-			// Monkey proxy cookie wouldn't be at cookie cash:
-			proxy_response.headers[cookieHeader].push(COOKIE_MARK + '=' + encodeURI(hostDestination));
-		}
-		// EXTRA SOLUTION
-		// if(path.indexOf('/events') == 0){
-		// 	console.log('start ES %s', new Date());
-		// 	console.dir(proxy_response.headers);	
-		// }
-
-		response.writeHead(proxy_response.statusCode, proxy_response.headers);
-	});
-	// Handle if host not found
-	proxy_request.on('error', function(err){
-		response.write(err + '', 'binary');
-		response.end();
-	});
-	request.addListener('data', function(chunk){
-		proxy_request.write(chunk, 'binary');
-	});
-	request.addListener('end', function(){
-		proxy_request.end();
-	});
-}).listen(PORT);
-
-console.log('LISTEN: %s', PORT);
+app.initialize().listen(PORT);
+console.log('START: %s', PORT);

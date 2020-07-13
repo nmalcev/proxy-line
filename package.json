@@ -1,11 +1,15 @@
 {
   "name": "proxy_monkey",
-  "version": "0.1",
-  "description": "Tool for proxing web requests",
+  "version": "0.2.0",
+  "description": "Tool for proxying web requests",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "n.maltsev",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "ssl-root-cas": "^1.3.1"
+  }
 }
