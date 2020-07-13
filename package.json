@@ -1,11 +1,10 @@
 {
-  "name": "proxy_monkey",
-  "version": "0.2.0",
+  "name": "proxy-line",
+  "version": "0.2.1",
   "description": "Tool for proxying web requests",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "author": "n.maltsev",
   "license": "ISC",
