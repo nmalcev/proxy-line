@@ -1,5 +1,5 @@
 ### ProxyLine
-Simple proxy server on node.js
+Simple CORS proxy server on node.js
 
 Features:
 - Does not require any dependencies;

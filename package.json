@@ -1,7 +1,7 @@
 {
   "name": "proxy-line",
   "version": "0.2.1",
-  "description": "Tool for proxying web requests",
+  "description": "CORS proxy",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
