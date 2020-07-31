@@ -5,8 +5,16 @@ const pipeMiddleware = require('./src/middlewares/pipeMiddleware');
 
 
 const app = new Application();
+// TODO make optional
+const IS_DEBUG = true;
 
 app.addMiddleware(corsMiddleware);
+
+if (IS_DEBUG) {
+    app.addMiddleware((req, resp) => {
+        console.log('%s %s', req.method, req.url);
+    });
+}
 
 app.addMiddleware((req, resp) => {
     if (req.url === '/health') {
@@ -19,7 +27,7 @@ app.addMiddleware((req, resp) => {
         
         resp.end();
     }
-    else if (req.method === 'POST' && req.url === '/request') {
+    else if (req.method === 'POST' && (req.url === '/request' || req.url === '/request/')) {
         pipeMiddleware(req, resp);
     }
     else {

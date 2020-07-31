@@ -2,7 +2,7 @@ const $http = require('http');
 const $https = require('https');
 
 function configureCertificates() {
-	$https.globalAgent.options.ca = require('ssl-root-cas/latest').create();
+    $https.globalAgent.options.ca = require('ssl-root-cas/latest').create();
 }
 
 
