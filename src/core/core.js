@@ -14,7 +14,10 @@ module.exports = class Application {
 
     addMiddleware(callback) {
         this.middlewares.push(callback);
+    }
 
+    addInitialMiddleware(callback) {
+        this.middlewares.unshift(callback);
     }
 
     runMiddlewares(request, response) {
@@ -45,4 +48,4 @@ module.exports = class Application {
     static isJSON(request) {
         return this.getRequestContentType(request) === 'application/json';
     }
-}
+};

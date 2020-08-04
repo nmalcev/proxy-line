@@ -44,4 +44,4 @@ fetch('http://localhost:61000/request', {
 ```
 
 ### Commands
-To start the server: `PORT=9090 npm run start`
+To start the server: `PORT=9090 MODE="DEBUG" SECRET="{\"u0009\":{\"host\":\".host.com\",\"header\":{\"cookie\":[\"$secret\",\"value\"]}}}" npm run start`

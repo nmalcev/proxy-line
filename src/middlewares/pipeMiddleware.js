@@ -1,7 +1,18 @@
 const { xrequest } = require('../request');
-const Application = require('../core/app');
+const Application = require('../core/core');
 const HEADER_WHITE_LIST = ['content-language', 'content-length', 'content-type', 'content-encoding', 'connection'];
 const COOKIE_PREFIX = 'pl-';
+
+const STORAGE = {
+    secret: {
+        u0009: {
+            host: '.host.com',
+            header: {
+                cookie: ['$secret', 'value']
+            }
+        }
+    }
+};
 
 // checks if requested data is valid
 function signatureIsValid(data) {
@@ -11,7 +22,16 @@ function signatureIsValid(data) {
     return true;
 }
 
-module.exports = function(req, resp) {
+function pipeMiddleware(req, resp) {
+    /**
+     * @property {object} data
+     * @property {string} data.host
+     * @property {string} [data.sid] - The secret id
+     * @property {string} data.protocol
+     * @property {Object} [data.headers]
+     * 
+     * data.sid does not protect against the uncontrolled use of secret data in cookies, but it keeps them from being copied
+     */
     Application.getRequestBody(req, function(data){
         if (!signatureIsValid(data)) {
             resp.writeHead(500);
@@ -19,18 +39,40 @@ module.exports = function(req, resp) {
             return;
         }
         
-        let protocol = data.protocol;
+        // The `protocol` property should ends with ':'
+        let protocol = data.protocol + (data.protocol.endsWith(':') ? '' : ':');
+        let headerMap;
+        
+        if (data.sid) {
+            const secret = STORAGE.secret[data.sid];
+            // Check if data.host ends with secret.host
+            if (0 === data.host.length - data.host.indexOf(secret.host) - secret.host.length) {
+                headerMap = secret.header;
+            }
+        }
 
         const originalHeaders = data.headers || {};
         const headers = {};
         for (let headerName in originalHeaders) {
             // Headers starting with ':' crash the application
             if (headerName[0] === ':') continue;
+            
+            
             headers[headerName] = originalHeaders[headerName];
-        }
 
-        // The `protocol` property should ends with ':'
-        if (protocol[protocol.length - 1] !== ':') protocol += ':';
+            // The secret handling
+            if (
+                headerMap && 
+                Array.isArray(headerMap[headerName]) && 
+                headers[headerName]
+            ) {
+                let patterns = headerMap[headerName];
+                for (let i = 0; i < patterns.length; i += 2) {
+                    headers[headerName] = (headers[headerName] + '').
+                        replace(patterns[i], patterns[i + 1]);
+                }
+            }
+        }
 
         const proxyReq = xrequest({
             protocol,
@@ -63,4 +105,11 @@ module.exports = function(req, resp) {
         resp.end();    
     });
     return true;
+};
+
+module.exports = {
+    pipeMiddleware,
+    setSecretBase: function(object) {
+        STORAGE.secret = object;
+    }
 };

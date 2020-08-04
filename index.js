@@ -1,43 +1,23 @@
-const Application = require('./src/core/app');
-const notFoundMiddleware = require('./src/middlewares/notFound');
-const corsMiddleware = require('./src/middlewares/corsMiddleware');
-const pipeMiddleware = require('./src/middlewares/pipeMiddleware');
-
-
-const app = new Application();
-// TODO make optional
-const IS_DEBUG = true;
-
-app.addMiddleware(corsMiddleware);
-
-if (IS_DEBUG) {
-    app.addMiddleware((req, resp) => {
-        console.log('%s %s', req.method, req.url);
-    });
-}
-
-app.addMiddleware((req, resp) => {
-    if (req.url === '/health') {
-        if (req.method === 'GET') {
-            resp.writeHead(200, 'OK', { 'Content-Type': 'text/html' });
-            resp.write('<h1>Still work</h1>');
-        } else {
-            resp.writeHead(200, 'OK');
-        }
-        
-        resp.end();
-    }
-    else if (req.method === 'POST' && (req.url === '/request' || req.url === '/request/')) {
-        pipeMiddleware(req, resp);
-    }
-    else {
-        notFoundMiddleware(req, resp);
-    }
-});
+const app = require('./src/app');
+const { setSecretBase } = require('./src/middlewares/pipeMiddleware');
 
 const PORT = process.env.PORT || 61000;
 const HOST = process.env.HOST || '0.0.0.0';
 
+
+if (process.env.MODE === 'DEBUG') {
+    app.addInitialMiddleware((req, resp) => {
+        console.log('%s %s', req.method, req.url);
+    });
+}
+
+try {
+    const secret = JSON.parse(process.env.SECRET || 'null');
+    setSecretBase(secret);
+} catch(e) {
+    console.warn('Cannot parse the SECRET value');
+}
+
 app.initialize().listen(PORT, HOST, () => {
-    console.log('ProxyLine started: %s:%s, PID %s', HOST, PORT, process.pid);
+    console.log('ProxyLine started: %s:%s, PID %s, MODE %s', HOST, PORT, process.pid, process.env.MODE);
 });
